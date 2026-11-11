@@ -1,0 +1,5 @@
+node_modules/
+.forkjoin/
+.agent/
+*.log
+.DS_Store

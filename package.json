@@ -1,0 +1,18 @@
+{
+  "name": "pi-forkjoin",
+  "version": "1.0.0",
+  "description": "Context-scoped fork/join for pi sessions: delegate transient exploratory work to a child transcript path, join back with a report + generated evidence manifest — in a single run, in every mode.",
+  "type": "module",
+  "scripts": {
+    "test": "node test/harness.mjs"
+  },
+  "keywords": ["pi", "pi-extension", "agent", "context", "session-tree", "fork-join"],
+  "license": "MIT",
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "1.3.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "^1.3.0",
+    "@earendil-works/pi-ai": "latest"
+  }
+}
