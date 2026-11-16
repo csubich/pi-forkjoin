@@ -10,14 +10,19 @@
  * promotes a drifted child to mainline (human-only). /forkjoin-commit is the
  * idle/crash recovery path. Live-fork state is derived purely by walking the
  * active branch (fork-open | join | cancel | abandon | root) — no extension
- * state. Design + evidence: see DECISIONS.md / README.md alongside this file.
+ * state. Hard invariants (turn exclusivity, no nesting, trust-the-error) are
+ * surfaced via each tool's promptSnippet/promptGuidelines; the longer
+ * state-machine/recovery narrative ships as a skill discovered through the
+ * `resources_discover` event (SKILL.md next to this file, or the repo's
+ * skills/forkjoin/SKILL.md — first one found wins).
  *
  * Debug: set FORKJOIN_DEBUG=1 to enable stderr logging and the test-only
  * `probe` tool. Verified against pi 1.3.0.
  */
 import { Type } from "@earendil-works/pi-ai";
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineTool, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";
 
 const FORK_OPEN_PREFIX = "FORK OPEN";
@@ -149,6 +154,17 @@ function buildManifest(ctx: ExtensionContext, forkRootEntryId: string): string {
 }
 
 export default function (pi: ExtensionAPI) {
+	// ---- resource discovery: ship the forkjoin skill alongside the extension ----
+	// Progressive disclosure: at startup only name+description+path enter the
+	// system prompt; the body loads when a matching task routes to it.
+	// Candidate order: SKILL.md co-located with this file (personal/project
+	// extension-dir installs), then the repo/package layout (skills/forkjoin).
+	const baseDir = dirname(fileURLToPath(import.meta.url));
+	pi.on("resources_discover", () => {
+		const candidates = [join(baseDir, "SKILL.md"), join(baseDir, "..", "skills", "forkjoin", "SKILL.md")];
+		return { skillPaths: candidates.filter((p) => existsSync(p)).slice(0, 1) };
+	});
+
 	// Debug output env-gated: raw stderr writes corrupt the TUI display, and
 	// the test-only probe tool must not occupy the production tool list.
 	const DEBUG = !!process.env.FORKJOIN_DEBUG;
@@ -167,6 +183,13 @@ export default function (pi: ExtensionAPI) {
 		name: "fork",
 		label: "Fork",
 		description: "Open a forked child segment. Must be the ONLY tool call in the turn. Call join when done.",
+		promptSnippet: "fork(label) opens a child segment for transient exploratory work; must be the only tool call in the turn.",
+		promptGuidelines: [
+			"fork must be the ONLY tool call in its turn; put all other tool work in turns before the fork.",
+			"Fork BEFORE speculative/exploratory work whose transcript trail you will not need again; the child transcript stays out of the main context.",
+			"If fork reports another fork still open, trust that error's evidence: join it (alone, in its own turn) or ask the user to run /abandon-fork. Never assume a join happened.",
+			"Joins rewind the transcript, not the filesystem: avoid mutating shared state inside the child unless the change IS the task.",
+		],
 		parameters: Type.Object({ label: Type.String({ description: "short noun phrase" }) }),
 		async execute(toolCallId, params, _signal, _onUpdate, ctx) {
 			if (!branchAvailable(ctx.sessionManager))
@@ -229,6 +252,11 @@ export default function (pi: ExtensionAPI) {
 		name: "join",
 		label: "Join",
 		description: "Report back to the fork's parent. Must be the ONLY tool call in the turn.",
+		promptSnippet: "join(message) ends the child segment, rewinds the parent to the fork point, and reports there with an auto-generated evidence manifest; must be the only tool call in the turn.",
+		promptGuidelines: [
+			"join must be the ONLY tool call in its turn: run every other tool in earlier turns, then join alone.",
+			"Report honestly and specifically in join(message) — the parent also sees the generated manifest of every child tool call, which contradicts embellishment; list any file mutations.",
+		],
 		parameters: Type.Object({ message: Type.String({ description: "freeform report" }) }),
 		async execute(toolCallId, params, _signal, _onUpdate, ctx) {
 			if (!branchAvailable(ctx.sessionManager))
@@ -338,6 +366,10 @@ ${staged.manifest}
 		name: "child_call",
 		label: "Child call",
 		description: "Read back one full child-segment tool call (args, thinking, full result) by manifest entry id.",
+		promptSnippet: "child_call(id) reads back a full joined-child tool call by its manifest id; pure read, safe to batch.",
+		promptGuidelines: [
+			"After a join, prefer child_call(id) over re-running child work when you need a detail; id is the [xxxxxxxx] stamp from the join manifest.",
+		],
 		parameters: Type.Object({ id: Type.String({ description: "entry id shown as [xxxxxxxx] in a join manifest" }) }),
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const sm = ctx.sessionManager as any;

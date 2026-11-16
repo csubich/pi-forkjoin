@@ -3,3 +3,4 @@ node_modules/
 .agent/
 *.log
 .DS_Store
+.piroot

@@ -211,6 +211,14 @@ async function settleCommit(parentMarker, prevNoteCount) {
 }
 
 // ---------------------------------------------------------------- scenarios
+console.log("\n=== SD: resources_discover ships the forkjoin skill ===");
+{
+	const discovered = resourceLoader.getSkills().skills ?? [];
+	const fj = discovered.find((s) => s.name === "pi-forkjoin");
+	check("SD pi-forkjoin skill discovered", !!fj, discovered.map((s) => s.name).join(",") || "none");
+	if (fj) check("SD skill has routing description", typeof fj.description === "string" && fj.description.length > 40);
+}
+
 console.log("\n=== S0: join with no fork (root walk) ===");
 await turn("S0: call join right away.", [
 	() => calls([["join", { message: "orphan join" }]]),

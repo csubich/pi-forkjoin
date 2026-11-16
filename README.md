@@ -26,19 +26,49 @@ context** while remaining browsable evidence.
 
 ## Install
 
-Copy `extension/forkjoin.ts` into either:
+Install this repo as a pi package — extension + skill install as one unit:
+
+```bash
+pi install /absolute/path/to/pi-forkjoin   # personal → ~/.pi/agent/settings.json
+pi install --local .                       # project-scoped, run inside the repo
+                                         # → .pi/settings.json (loaded after trust)
+```
+
+A directory source follows normal package discovery, so the `pi.extensions`
+and `pi.skills` declarations in `package.json` pick up `extension/forkjoin.ts`
+and `skills/forkjoin/` automatically — nothing to copy, no AGENTS.md editing
+needed. Once installed: `pi list` shows configured packages, `pi remove
+<same-source>` removes one, `pi update --extensions` reconciles.
+
+Two local-path caveats from pi's package docs: relative paths resolve from the
+settings file that contains them (prefer an absolute path for personal
+installs), and pi does not run a dependency install for local sources — fine
+here, since pi and `@earendil-works/pi-ai` are host-provided
+(`peerDependencies`).
+
+At startup pi puts only the skill's name + description in the system prompt;
+the full state-machine/recovery guidance loads on demand when a task matches.
+The hard invariants (turn exclusivity) additionally ride in the system prompt
+via each tool's `promptSnippet`/`promptGuidelines`, always in context.
+
+Manual install (only if you can't use package install): copy
+`extension/forkjoin.ts` into either
 
 ```
 ~/.pi/extensions/forkjoin.ts        # personal (all projects)
 <project>/.pi/extensions/           # project (pi asks to trust the project once)
 ```
 
+and copy `skills/forkjoin/SKILL.md` **next to** the extension file (the
+extension's `resources_discover` handler finds `SKILL.md` beside it, or the
+repo layout at `../skills/forkjoin/SKILL.md`).
+
 Requires pi ≥ 1.3.0 (verified against 1.3.0). The extension feature-detects and
 disables itself cleanly on unsupported hosts rather than misbehaving.
 
-Add the guidance block from `docs/AGENT-GUIDANCE.md` to your `AGENTS.md` so the
-model knows the contract (this matters — field testing shows the contract holds
-on guidance alone).
+`docs/AGENT-GUIDANCE.md` remains available as a short AGENTS.md block if you
+want the contract duplicated there; with the skill + prompt guidelines it is
+optional.
 
 ## Usage
 
